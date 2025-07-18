@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const DashboardPage = () => {
@@ -7,48 +7,20 @@ const DashboardPage = () => {
   const [selectedEmpId, setSelectedEmpId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmpName, setNewEmpName] = useState("");
+  const [employees, setEmployees] = useState([]);
+  const API_URL = "https://register-backend-uhok.onrender.com";
 
-  const [employees, setEmployees] = useState([
-    {
-      id: 1,
-      name: "Alice Johnson",
-      title: "Senior Developer",
-      earned: 75000,
-      initials: "AJ",
-      color: "bg-orange-300",
-    },
-    {
-      id: 2,
-      name: "Bob Williams",
-      title: "Product Manager",
-      earned: 82000,
-      initials: "BW",
-      color: "bg-black text-white",
-    },
-    {
-      id: 3,
-      name: "Charlie Davis",
-      title: "UX Designer",
-      earned: 68000,
-      image: "https://randomuser.me/api/portraits/men/32.jpg",
-    },
-    {
-      id: 4,
-      name: "Diana Miller",
-      title: "Marketing Specialist",
-      earned: 62000,
-      image: "https://randomuser.me/api/portraits/women/65.jpg",
-    },
-    {
-      id: 5,
-      name: "Ethan Green",
-      title: "Data Analyst",
-      earned: 70000,
-      image: "https://randomuser.me/api/portraits/men/45.jpg",
-    },
-  ]);
+  // Fetch employees on mount
+  useEffect(() => {
+    fetch(`${API_URL}/employees`)
+      .then((res) => res.json())
+      .then((data) => {setEmployees(data)
+        console.log(data);
+      })
+      .catch((err) => console.error("Error fetching employees:", err));
+  }, []);
 
-  // ➕ Add Employee Logic
+  // ➕ Add Employee
   const handleAddEmployee = () => {
     setShowAddModal(true);
   };
@@ -59,39 +31,53 @@ const DashboardPage = () => {
       return;
     }
 
-    const initials = newEmpName
-      .split(" ")
-      .map((w) => w[0].toUpperCase())
-      .join("")
-      .slice(0, 2);
-
-    const newEmp = {
-      id: Date.now(),
-      name: newEmpName,
-      title: "New Designation",
-      earned: 0,
-      initials,
-      color: "bg-blue-300",
-    };
-
-    setEmployees([...employees, newEmp]);
-    setShowAddModal(false);
-    setNewEmpName("");
+    fetch(`${API_URL}/employees`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: newEmpName,
+        earned: 0,
+      }),
+    })
+      .then((res) => res.json())
+      .then((newEmp) => {
+        setEmployees((prev) => [...prev, newEmp]);
+        setShowAddModal(false);
+        setNewEmpName("");
+      })
+      .catch((err) => {
+        console.error("Add failed:", err);
+        alert("Failed to add employee");
+      });
   };
 
-  // 🗑 Remove Employee Logic
+  // 🗑 Remove Employee
   const handleRemoveEmployee = () => {
-    setShowModal(true); // show modal instead of direct removal
+    setShowModal(true);
   };
 
   const confirmDelete = () => {
     if (!selectedEmpId) return;
-    const updated = employees.filter(
-      (emp) => emp.id !== parseInt(selectedEmpId)
-    );
-    setEmployees(updated);
-    setShowModal(false);
-    setSelectedEmpId(null);
+
+    fetch(`${API_URL}/employees/${selectedEmpId}`, {
+      method: "DELETE",
+    })
+      .then((res) => {
+        if (res.ok) {
+          const updated = employees.filter((emp) => emp.id !== selectedEmpId);
+          setEmployees(updated);
+          setShowModal(false);
+          setSelectedEmpId(null);
+        } else {
+          alert("Failed to delete employee");
+        }
+      })
+      .catch((err) => {
+        console.error("Delete failed:", err);
+        alert("Error deleting employee");
+      });
   };
 
   const handleCardClick = (id) => {
@@ -132,7 +118,9 @@ const DashboardPage = () => {
                 />
               ) : (
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${emp.color}`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                    emp.color || "bg-blue-300"
+                  }`}
                 >
                   {emp.initials}
                 </div>
@@ -143,7 +131,7 @@ const DashboardPage = () => {
                 <div className="text-sm mt-1">
                   <span className="text-gray-500">Earned:</span>{" "}
                   <span className="text-rose-600 font-semibold">
-                    ${emp.earned.toLocaleString()}
+                    ${emp.earned?.toLocaleString() || 0}
                   </span>
                 </div>
               </div>
@@ -153,7 +141,7 @@ const DashboardPage = () => {
         ))}
       </div>
 
-      {/* Buttons */}
+      {/* Action Buttons */}
       <div className="flex flex-col gap-3">
         <button
           onClick={handleAddEmployee}
@@ -169,7 +157,7 @@ const DashboardPage = () => {
         </button>
       </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Nav */}
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t bg-white flex justify-around py-2 text-gray-500 text-xs">
         <div className="flex flex-col items-center">
           <span className="material-icons text-lg">home</span>
@@ -188,6 +176,8 @@ const DashboardPage = () => {
           <span>Settings</span>
         </div>
       </div>
+
+      {/* Delete Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-5 rounded-lg w-11/12 max-w-sm text-center">
@@ -223,6 +213,8 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
+
+      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-5 rounded-lg w-11/12 max-w-sm text-center">
